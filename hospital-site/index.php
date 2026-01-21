@@ -1,8 +1,8 @@
 <?php
-include 'config.php';
+require_once __DIR__ . '/api/config.php'; // __DIR__ - путь к текущей папке
 
-// Получаем все специальности
-$stmt = $pdo->query("SELECT * FROM specialities ORDER BY name");
+// Теперь $pdo должен быть доступен
+$stmt = $pdo->query("SELECT * FROM specialities");
 $specialities = $stmt->fetchAll();
 ?>
 
