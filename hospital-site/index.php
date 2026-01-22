@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/api/config.php'; // __DIR__ - путь к текущей папке
+require_once __DIR__ . '/config.php'; // __DIR__ - путь к текущей папке
 
 // Теперь $pdo должен быть доступен
 $stmt = $pdo->query("SELECT * FROM specialities");

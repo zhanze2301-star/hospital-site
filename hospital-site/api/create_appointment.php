@@ -1,51 +1,102 @@
 <?php
-$api_mode = true;
-require_once __DIR__ . '/../config.php';
+// api/create_appointment_real.php - РАБОЧАЯ ВЕРСИЯ
 
-$data = json_decode(file_get_contents('php://input'), true);
-$patient_name = trim($data['patient_name'] ?? '');
-$patient_phone = trim($data['patient_phone'] ?? '');
-$doctor_id = $data['doctor_id'] ?? null;
-$date = $data['date'] ?? null;
-$time = $data['time'] ?? null;
+// ВКЛЮЧАЕМ ВСЕ ОШИБКИ ДЛЯ ОТЛАДКИ
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 
-// Валидация
-if (empty($patient_name) || !$doctor_id || !$date || !$time) {
-    http_response_code(400);
-    echo json_encode(['error' => 'Заполните обязательные поля: имя, врач, дата и время']);
-    exit;
-}
+// ЗАГОЛОВОК JSON - САМОЕ ПЕРВОЕ!
+header('Content-Type: application/json; charset=utf-8');
 
-// Формируем DATETIME
-$datetime = $date . ' ' . $time . ':00';
+// Ответ по умолчанию
+$response = ['success' => false, 'error' => 'Неизвестная ошибка'];
 
-// Проверка занятости времени
-$stmt = $pdo->prepare("SELECT id FROM appointments 
-                       WHERE doctor_id = ? AND appointment_datetime = ? 
-                       AND status != 'cancelled' LIMIT 1");
-$stmt->execute([$doctor_id, $datetime]);
-if ($stmt->fetch()) {
-    http_response_code(409);
-    echo json_encode(['error' => 'К сожалению, это время только что заняли. Выберите другое время.']);
-    exit;
-}
-
-// Создание записи
-$stmt = $pdo->prepare("INSERT INTO appointments 
-                      (patient_name, patient_phone, doctor_id, appointment_datetime, status, payment_status) 
-                      VALUES (?, ?, ?, ?, 'pending', 'unpaid')");
 try {
+    // Подключаем БД
+    require_once __DIR__ . '/../config.php';
+    
+    // Получаем данные
+    $input = file_get_contents('php://input');
+    
+    if (empty($input)) {
+        throw new Exception('Нет данных в запросе');
+    }
+    
+    $data = json_decode($input, true);
+    
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        throw new Exception('Неверный JSON: ' . json_last_error_msg());
+    }
+    
+    // Проверяем обязательные поля
+    $required = ['patient_name', 'doctor_id', 'date', 'time'];
+    foreach ($required as $field) {
+        if (empty($data[$field])) {
+            throw new Exception("Не заполнено поле: $field");
+        }
+    }
+    
+    // Подготавливаем данные
+    $patient_name = trim($data['patient_name']);
+    $patient_phone = trim($data['patient_phone'] ?? '');
+    $doctor_id = intval($data['doctor_id']);
+    $date = $data['date'];
+    $time = $data['time'];
+    
+    // Проверяем врача
+    $stmt = $pdo->prepare("SELECT id, name FROM doctors WHERE id = ?");
+    $stmt->execute([$doctor_id]);
+    $doctor = $stmt->fetch();
+    
+    if (!$doctor) {
+        throw new Exception("Врач с ID $doctor_id не найден");
+    }
+    
+    // Формируем datetime
+    $datetime = "$date $time:00";
+    
+    // Проверяем формат даты
+    if (!strtotime($datetime)) {
+        throw new Exception("Неверная дата или время");
+    }
+    
+    // Проверяем, не занято ли время
+    $stmt = $pdo->prepare("SELECT id FROM appointments 
+                           WHERE doctor_id = ? AND appointment_datetime = ? 
+                           AND status != 'cancelled'");
+    $stmt->execute([$doctor_id, $datetime]);
+    
+    if ($stmt->fetch()) {
+        throw new Exception("Это время уже занято другим пациентом");
+    }
+    
+    // СОЗДАЁМ ЗАПИСЬ
+    $stmt = $pdo->prepare("INSERT INTO appointments 
+                          (patient_name, patient_phone, doctor_id, appointment_datetime, status, payment_status) 
+                          VALUES (?, ?, ?, ?, 'pending', 'unpaid')");
+    
     $stmt->execute([$patient_name, $patient_phone, $doctor_id, $datetime]);
     $appointment_id = $pdo->lastInsertId();
     
-    echo json_encode([
-        'success' => true, 
+    // УСПЕХ!
+    $response = [
+        'success' => true,
         'appointment_id' => $appointment_id,
+        'doctor_name' => $doctor['name'],
         'datetime' => $datetime,
-        'message' => 'Запись успешно создана! Наш администратор свяжется с вами для подтверждения.'
-    ]);
-} catch (PDOException $e) {
-    http_response_code(500);
-    echo json_encode(['error' => 'Ошибка при сохранении: ' . $e->getMessage()]);
+        'formatted_datetime' => date('d.m.Y H:i', strtotime($datetime)),
+        'message' => "✅ Запись #$appointment_id успешно создана!"
+    ];
+    
+} catch (Exception $e) {
+    // ЛОВИМ ВСЕ ОШИБКИ
+    $response = [
+        'success' => false,
+        'error' => $e->getMessage(),
+        'trace' => $e->getTraceAsString() // Только для отладки
+    ];
 }
-?>
+
+// ВЫВОДИМ ОТВЕТ
+echo json_encode($response, JSON_UNESCAPED_UNICODE);
+exit;

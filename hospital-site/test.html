@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Тест исправленного API</title>
+</head>
+<body>
+    <h2>Тест API записи</h2>
+    
+    <button onclick="testApi()">Тест 1: Корректные данные</button>
+    <button onclick="testApi2()">Тест 2: Ошибочные данные</button>
+    
+    <div id="result" style="margin-top: 20px; padding: 10px; background: #f0f0f0;"></div>
+    
+    <script>
+        async function testApi() {
+            const data = {
+                patient_name: 'Тестовый Пациент',
+                patient_phone: '+996 555 123456',
+                doctor_id: 10,
+                date: '2026-01-25',
+                time: '14:30'
+            };
+            
+            await sendTest(data);
+        }
+        
+        async function testApi2() {
+            const data = {
+                patient_name: '',  // Пустое имя - должна быть ошибка
+                doctor_id: 999,    // Несуществующий врач
+                date: 'invalid',
+                time: '25:70'      // Неверное время
+            };
+            
+            await sendTest(data);
+        }
+        
+        async function sendTest(data) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<div style="color:blue">Отправка...</div>';
+            
+            try {
+                const response = await fetch('api/create_appointment.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const text = await response.text();
+                resultDiv.innerHTML = `
+                    <h3>Результат (статус: ${response.status})</h3>
+                    <pre style="background:white;padding:10px;border:1px solid #ccc;">${text}</pre>
+                    <p>Заголовки: ${response.headers.get('content-type')}</p>
+                `;
+                
+                // Пытаемся разобрать JSON
+                try {
+                    const json = JSON.parse(text);
+                    console.log('JSON ответ:', json);
+                } catch (e) {
+                    console.error('Не JSON ответ:', text.substring(0, 200));
+                }
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<div style="color:red">Ошибка сети: ${error.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>

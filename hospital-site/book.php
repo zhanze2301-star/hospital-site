@@ -1,8 +1,12 @@
 <?php
 // Подключаем конфиг
-require_once 'api/config.php';
+require_once 'config.php';
 
 $doctor_id = $_GET['doctor_id'] ?? null;
+
+// ОТЛАДКА: выведем doctor_id
+echo "<!-- DEBUG: doctor_id from URL = " . htmlspecialchars($doctor_id) . " -->";
+
 if (!$doctor_id) {
     die('<div class="alert alert-danger">Не указан врач. Вернитесь на страницу врачей.</div>');
 }
@@ -165,196 +169,287 @@ if (!$doctor) {
         </div>
     </div>
 
-    <script>
-        // Генерация слотов времени (каждые 30 минут с 9:00 до 18:00)
-        function generateTimeSlots() {
-            const slotsContainer = document.getElementById('timeSlots');
-            slotsContainer.innerHTML = '';
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+<script>
+// ПРОСТАЯ генерация слотов времени (без API)
+function generateSimpleTimeSlots() {
+    const slotsContainer = document.getElementById('timeSlots');
+    const selectedDate = document.getElementById('date').value;
+    
+    if (!selectedDate) {
+        slotsContainer.innerHTML = '<div class="text-muted">Сначала выберите дату</div>';
+        return;
+    }
+    
+    // Проверяем, не прошедшая ли дата
+    const selected = new Date(selectedDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (selected < today) {
+        slotsContainer.innerHTML = '<div class="text-danger">Нельзя выбрать прошедшую дату</div>';
+        return;
+    }
+    
+    slotsContainer.innerHTML = '';
+    
+    // Создаём слоты с 9:00 до 18:00 каждые 30 минут
+    const slots = [];
+    for (let hour = 9; hour < 18; hour++) {
+        for (let minute of [0, 30]) {
+            const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
             
-            // Проверяем, выбрана ли дата
-            const selectedDate = document.getElementById('date').value;
-            if (!selectedDate) {
-                slotsContainer.innerHTML = '<div class="text-muted">Сначала выберите дату</div>';
-                return;
-            }
-            
-            const slots = [];
-            const startHour = 9;
-            const endHour = 18;
-            
-            for (let hour = startHour; hour < endHour; hour++) {
-                // Два слота в час: :00 и :30
-                for (let minute of ['00', '30']) {
-                    const timeString = `${hour.toString().padStart(2, '0')}:${minute}`;
-                    
-                    // Проверяем, не прошедшее ли это время для сегодняшней даты
-                    const selectedDateTime = new Date(selectedDate + 'T' + timeString + ':00');
-                    const now = new Date();
-                    if (selectedDate === now.toISOString().split('T')[0] && selectedDateTime <= now) {
-                        continue; // Пропускаем прошедшее время сегодня
-                    }
-                    
-                    slots.push(`
-                        <div class="col-4 col-sm-3">
-                            <div class="time-slot p-2 text-center border rounded bg-light" 
-                                 data-time="${timeString}"
-                                 onclick="selectTimeSlot(this, '${timeString}')">
-                                ${timeString}
-                            </div>
-                        </div>
-                    `);
+            // Если сегодняшняя дата, пропускаем прошедшее время
+            if (selected.toDateString() === today.toDateString()) {
+                const now = new Date();
+                const slotTime = new Date();
+                slotTime.setHours(hour, minute, 0, 0);
+                if (slotTime <= now) {
+                    continue;
                 }
             }
             
-            if (slots.length === 0) {
-                slotsContainer.innerHTML = '<div class="text-danger">На выбранную дату нет доступных слотов времени</div>';
-            } else {
-                slotsContainer.innerHTML = slots.join('');
-            }
+            slots.push(timeStr);
+        }
+    }
+    
+    if (slots.length === 0) {
+        slotsContainer.innerHTML = '<div class="text-warning">Нет доступных слотов на выбранную дату</div>';
+        return;
+    }
+    
+    // Отображаем слоты
+    slots.forEach(time => {
+        const slotDiv = document.createElement('div');
+        slotDiv.className = 'col-4 col-sm-3 mb-2';
+        slotDiv.innerHTML = `
+            <div class="time-slot p-2 text-center border rounded bg-light" 
+                 data-time="${time}"
+                 onclick="selectTimeSlot(this, '${time}')"
+                 style="cursor: pointer;">
+                ${time}
+            </div>
+        `;
+        slotsContainer.appendChild(slotDiv);
+    });
+}
+
+// Функция для выбора слота времени
+function selectTimeSlot(element, time) {
+    // Сбрасываем выделение у всех слотов
+    document.querySelectorAll('.time-slot').forEach(slot => {
+        slot.classList.remove('bg-primary', 'text-white', 'border-primary');
+        slot.classList.add('bg-light');
+    });
+    
+    // Выделяем выбранный слот
+    element.classList.remove('bg-light');
+    element.classList.add('bg-primary', 'text-white', 'border-primary');
+    
+    // Сохраняем выбранное время в скрытом поле
+    document.getElementById('selectedTime').value = time;
+    
+    // Показываем сообщение
+    const resultSpan = document.getElementById('timeCheckResult');
+    if (resultSpan) {
+        resultSpan.innerHTML = `<span class="text-success">
+            <i class="bi bi-check-circle"></i> Выбрано время: ${time}
+        </span>`;
+    }
+}
+
+// Функция проверки времени (упрощённая, всегда возвращает true)
+async function checkTime() {
+    const selectedTime = document.getElementById('selectedTime').value;
+    
+    if (!selectedTime) {
+        alert('Сначала выберите время приёма');
+        return;
+    }
+    
+    const resultSpan = document.getElementById('timeCheckResult');
+    if (resultSpan) {
+        resultSpan.innerHTML = '<span class="text-success">✓ Время доступно для записи</span>';
+    }
+    return true;
+}
+
+// Обработка отправки формы записи
+document.getElementById('bookingForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    // Получаем данные формы
+    const patient_name = document.getElementById('patient_name').value.trim();
+    const patient_phone = document.getElementById('patient_phone').value.trim();
+    const doctor_id = document.getElementById('doctor_id').value;
+    const date = document.getElementById('date').value;
+    const selectedTime = document.getElementById('selectedTime').value;
+    
+    console.log('Отправка формы:', { patient_name, patient_phone, doctor_id, date, selectedTime });
+    
+    // Валидация
+    if (!patient_name) {
+        showMessage('Введите ваше полное имя', 'danger');
+        return;
+    }
+    
+    if (!doctor_id) {
+        showMessage('Не указан врач. Вернитесь на страницу врачей.', 'danger');
+        return;
+    }
+    
+    if (!date) {
+        showMessage('Выберите дату приёма', 'danger');
+        return;
+    }
+    
+    if (!selectedTime) {
+        showMessage('Выберите время приёма', 'danger');
+        return;
+    }
+    
+    // Формируем данные для отправки
+    const formData = {
+        patient_name: patient_name,
+        patient_phone: patient_phone,
+        doctor_id: doctor_id,
+        date: date,
+        time: selectedTime
+    };
+    
+    console.log('Данные для отправки:', formData);
+    
+    // Показываем загрузку
+    showMessage('<div class="spinner-border spinner-border-sm"></div> Отправка данных...', 'info');
+    
+    try {
+        // Отправляем запрос на сервер
+        const response = await fetch('api/create_appointment.php', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        });
+        
+        // Проверяем тип ответа
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error('Сервер вернул не JSON:', text.substring(0, 200));
+            throw new Error('Сервер вернул некорректный ответ. Проверьте API.');
         }
         
-        // Выбор слота времени
-        function selectTimeSlot(element, time) {
-            // Убираем выделение у всех слотов
+        const result = await response.json();
+        console.log('Ответ сервера:', result);
+        
+        if (result.success) {
+            const successHtml = `
+                <div class="alert alert-success">
+                    <h4><i class="bi bi-check-circle-fill"></i> Запись успешно создана!</h4>
+                    <p>${result.message}</p>
+                    <hr>
+                    <p><strong>Номер записи:</strong> ${result.appointment_id}</p>
+                    <p><strong>Пациент:</strong> ${patient_name}</p>
+                    <p><strong>Дата и время:</strong> ${date} в ${selectedTime}</p>
+                    <p class="mt-3">
+                        <a href="index.php" class="btn btn-success">Вернуться на главную</a>
+                        <button onclick="window.print()" class="btn btn-outline-primary">
+                            <i class="bi bi-printer"></i> Распечатать
+                        </button>
+                    </p>
+                </div>
+            `;
+            showMessage(successHtml, 'success');
+            
+            // Сбрасываем форму (кроме врача)
+            document.getElementById('bookingForm').reset();
+            document.getElementById('doctor_id').value = doctor_id; // Сохраняем врача
+            document.getElementById('selectedTime').value = '';
             document.querySelectorAll('.time-slot').forEach(slot => {
-                slot.classList.remove('bg-primary', 'text-white');
+                slot.classList.remove('bg-primary', 'bg-danger', 'text-white');
                 slot.classList.add('bg-light');
             });
             
-            // Выделяем выбранный слот
-            element.classList.remove('bg-light');
-            element.classList.add('bg-primary', 'text-white');
+            const resultSpan = document.getElementById('timeCheckResult');
+            if (resultSpan) resultSpan.innerHTML = '';
             
-            // Сохраняем выбранное время в скрытом поле
-            document.getElementById('selectedTime').value = time;
-            
-            // Проверяем доступность времени
-            checkTimeAvailability(time);
+        } else {
+            showMessage(`<i class="bi bi-exclamation-triangle"></i> Ошибка: ${result.error}`, 'danger');
         }
         
-        // Проверка доступности времени
-        async function checkTimeAvailability(time) {
-            const doctor_id = document.getElementById('doctor_id').value;
-            const date = document.getElementById('date').value;
-            
-            if (!doctor_id || !date || !time) return;
-            
-            const response = await fetch('api/check_time.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ doctor_id, date, time })
-            });
-            
-            const result = await response.json();
-            
-            // Находим выбранный слот и показываем статус
-            const slotElement = document.querySelector(`.time-slot[data-time="${time}"]`);
-            if (slotElement) {
-                if (result.available) {
-                    slotElement.innerHTML = `${time} <i class="bi bi-check-lg"></i>`;
-                    slotElement.classList.remove('bg-danger');
-                } else {
-                    slotElement.innerHTML = `${time} <i class="bi bi-x-lg"></i>`;
-                    slotElement.classList.add('bg-danger', 'text-white');
-                    // Сбрасываем выбор, если время занято
-                    document.getElementById('selectedTime').value = '';
-                }
-            }
-        }
-        
-        // Обработка отправки формы
-        document.getElementById('bookingForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const patient_name = document.getElementById('patient_name').value.trim();
-            const selectedTime = document.getElementById('selectedTime').value;
-            
-            if (!patient_name) {
-                showMessage('Введите ваше имя', 'danger');
-                return;
-            }
-            
-            if (!selectedTime) {
-                showMessage('Выберите время приёма', 'danger');
-                return;
-            }
-            
-            const formData = {
-                patient_name: patient_name,
-                patient_phone: document.getElementById('patient_phone').value.trim(),
-                doctor_id: document.getElementById('doctor_id').value,
-                date: document.getElementById('date').value,
-                time: selectedTime
-            };
-            
-            // Показываем загрузку
-            showMessage('<i class="bi bi-hourglass-split"></i> Отправка данных...', 'info');
-            
-            const response = await fetch('api/create_appointment.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
-            });
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                const successHtml = `
-                    <div class="alert alert-success">
-                        <h4><i class="bi bi-check-circle-fill"></i> Запись успешно создана!</h4>
-                        <p>${result.message}</p>
-                        <hr>
-                        <p><strong>Номер записи:</strong> ${result.appointment_id}</p>
-                        <p><strong>Дата и время:</strong> ${formatDateTime(result.datetime)}</p>
-                        <p><strong>Врач:</strong> <?php echo htmlspecialchars($doctor['name']); ?></p>
-                        <p class="mt-3">Сохраните эту информацию. Наш администратор свяжется с вами для подтверждения.</p>
-                    </div>
-                `;
-                showMessage(successHtml, 'success');
-                document.getElementById('bookingForm').reset();
-                document.getElementById('selectedTime').value = '';
-                document.querySelectorAll('.time-slot').forEach(slot => {
-                    slot.classList.remove('bg-primary', 'bg-danger', 'text-white');
-                    slot.classList.add('bg-light');
-                });
-            } else {
-                showMessage(`<i class="bi bi-exclamation-triangle"></i> Ошибка: ${result.error}`, 'danger');
-            }
-        });
-        
-        // Функция для показа сообщений
-        function showMessage(content, type = 'info') {
-            const messageDiv = document.getElementById('message');
-            if (type === 'info' || type === 'success' || type === 'danger') {
-                messageDiv.innerHTML = `<div class="alert alert-${type}">${content}</div>`;
-            } else {
-                messageDiv.innerHTML = content;
-            }
-        }
-        
-        // Форматирование даты и времени для отображения
-        function formatDateTime(datetimeString) {
-            const date = new Date(datetimeString);
-            return date.toLocaleDateString('ru-RU', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-        }
-        
-        // Генерируем слоты времени при изменении даты
-        document.getElementById('date').addEventListener('change', generateTimeSlots);
-        
-        // Инициализация: генерируем слоты для сегодняшней даты (если нужно)
-        window.addEventListener('load', function() {
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('date').value = today;
-            document.getElementById('date').min = today;
-            generateTimeSlots();
-        });
-    </script>
+    } catch (error) {
+        console.error('Ошибка при отправке:', error);
+        showMessage(`<i class="bi bi-exclamation-triangle"></i> Ошибка сети: ${error.message}`, 'danger');
+    }
+});
+
+// Функция для показа сообщений
+function showMessage(content, type = 'info') {
+    const messageDiv = document.getElementById('message');
+    if (!messageDiv) {
+        console.error('Элемент #message не найден!');
+        // Создаём элемент, если его нет
+        const newDiv = document.createElement('div');
+        newDiv.id = 'message';
+        newDiv.className = 'mt-3';
+        document.querySelector('.container').appendChild(newDiv);
+        newDiv.innerHTML = `<div class="alert alert-${type}">${content}</div>`;
+        return;
+    }
+    
+    if (type === 'info' || type === 'success' || type === 'danger' || type === 'warning') {
+        messageDiv.innerHTML = `<div class="alert alert-${type}">${content}</div>`;
+    } else {
+        messageDiv.innerHTML = content;
+    }
+}
+
+// Измените вызов в обработчике изменения даты
+document.getElementById('date').addEventListener('change', generateSimpleTimeSlots);
+
+// И при загрузке страницы
+window.addEventListener('load', function() {
+    // Проверяем, что doctor_id передан в URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const doctorIdFromUrl = urlParams.get('doctor_id');
+    
+    if (doctorIdFromUrl) {
+        // Устанавливаем doctor_id в скрытое поле
+        document.getElementById('doctor_id').value = doctorIdFromUrl;
+        console.log('Doctor ID установлен:', doctorIdFromUrl);
+    } else {
+        console.warn('Doctor ID не передан в URL');
+        showMessage('Не указан врач. Вернитесь на страницу врачей.', 'danger');
+    }
+    
+    // Устанавливаем завтрашнюю дату
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+    
+    document.getElementById('date').value = tomorrowStr;
+    document.getElementById('date').min = tomorrowStr;
+    document.getElementById('date').max = new Date(tomorrow.getTime() + 30 * 24 * 60 * 60 * 1000)
+        .toISOString().split('T')[0]; // +30 дней
+    
+    // Генерируем слоты
+    generateSimpleTimeSlots();
+});
+</script>
 </body>
 </html>

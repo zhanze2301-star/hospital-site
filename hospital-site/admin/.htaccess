@@ -1,0 +1,5 @@
+# .htaccess в папке admin/
+AuthType Basic
+AuthName "Admin Access Required"
+AuthUserFile /путь/к/вашему/.htpasswd
+Require valid-user

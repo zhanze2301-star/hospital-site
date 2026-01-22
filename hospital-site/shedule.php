@@ -1,5 +1,5 @@
 <?php
-require_once 'api/config.php';
+require_once 'config.php';
 
 // Получаем параметры фильтрации
 $doctor_id = $_GET['doctor_id'] ?? null;

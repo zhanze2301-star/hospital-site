@@ -1,5 +1,5 @@
 <?php
-require_once 'api/config.php';
+require_once 'config.php';
 
 echo "<h2>Заполнение базы данных тестовыми данными</h2>";
 

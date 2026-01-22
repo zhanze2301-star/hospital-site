@@ -1,5 +1,5 @@
 <?php
-include 'api/config.php';  // Подключаем БД
+include 'config.php';  // Подключаем БД
 
 // Проверяем, передан ли speciality_id через GET
 if (!isset($_GET['speciality_id']) || !is_numeric($_GET['speciality_id'])) {

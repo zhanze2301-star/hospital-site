@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once 'api/config.php';
+require_once 'config.php';
 
 // Если уже авторизован, перенаправляем в админку
 if (isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true) {
