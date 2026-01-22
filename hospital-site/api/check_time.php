@@ -30,4 +30,4 @@ if ($stmt->fetch()) {
 } else {
     echo json_encode(['available' => true, 'message' => 'Время свободно']);
 }
-?>
+?> 

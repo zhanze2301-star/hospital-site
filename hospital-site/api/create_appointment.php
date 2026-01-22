@@ -11,7 +11,7 @@ header('Content-Type: application/json; charset=utf-8');
 // Ответ по умолчанию
 $response = ['success' => false, 'error' => 'Неизвестная ошибка'];
 
-try {
+try { 
     // Подключаем БД
     require_once __DIR__ . '/../config.php';
     

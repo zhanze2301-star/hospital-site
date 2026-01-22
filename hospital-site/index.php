@@ -13,7 +13,7 @@ $specialities = $stmt->fetchAll();
     <title>Запись на приём — Больница</title>
     <!-- Bootstrap CDN для красивого вида -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
+</head> 
 <body class="bg-light">
 
 <div class="container my-5">

@@ -10,7 +10,7 @@ echo "<!-- DEBUG: doctor_id from URL = " . htmlspecialchars($doctor_id) . " -->"
 if (!$doctor_id) {
     die('<div class="alert alert-danger">Не указан врач. Вернитесь на страницу врачей.</div>');
 }
-
+ 
 // Получаем информацию о враче
 $stmt = $pdo->prepare("SELECT d.*, s.name as speciality_name 
                        FROM doctors d 

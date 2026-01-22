@@ -17,7 +17,7 @@ $appointments_count = $pdo->query("SELECT COUNT(*) FROM appointments")->fetchCol
 if ($appointments_count == 0) {
     echo "<h3>Создаём тестовые записи на приём...</h3>";
     
-    // Получаем список врачей
+    // Получаем список врачей 
     $doctors = $pdo->query("SELECT id FROM doctors LIMIT 5")->fetchAll(PDO::FETCH_COLUMN);
     
     if (empty($doctors)) {

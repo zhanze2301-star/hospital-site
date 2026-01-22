@@ -11,5 +11,5 @@ echo json_encode([
     'debug' => 'Это тестовый ответ без проверок'
 ]);
 
-exit;
+exit; 
 ?>

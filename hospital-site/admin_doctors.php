@@ -14,7 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_doctor'])) {
     $speciality_id = intval($_POST['speciality_id']);
     $description = trim($_POST['description'] ?? '');
     $photo_url = trim($_POST['photo_url'] ?? '');
-    
+     
     if (!empty($name) && $speciality_id > 0) {
         $stmt = $pdo->prepare("INSERT INTO doctors (name, speciality_id, description, photo_url) VALUES (?, ?, ?, ?)");
         $stmt->execute([$name, $speciality_id, $description, $photo_url]);

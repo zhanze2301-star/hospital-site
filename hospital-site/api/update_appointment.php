@@ -11,7 +11,7 @@ if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== tru
 
 $appointment_id = $_POST['id'] ?? null;
 $new_status = $_POST['status'] ?? null;
-
+ 
 if (!$appointment_id || !in_array($new_status, ['pending', 'completed', 'cancelled'])) {
     http_response_code(400);
     echo json_encode(['error' => 'Неверные данные для обновления']);

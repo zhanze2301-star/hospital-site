@@ -11,7 +11,7 @@ $speciality_id = (int)$_GET['speciality_id'];
 
 // Получаем название выбранной специальности (для заголовка)
 $stmt_spec = $pdo->prepare("SELECT name FROM specialities WHERE id = ?");
-$stmt_spec->execute([$speciality_id]);
+$stmt_spec->execute([$speciality_id]); 
 $speciality = $stmt_spec->fetch();
 
 if (!$speciality) {

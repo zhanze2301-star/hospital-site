@@ -1,6 +1,6 @@
 <?php
 require_once 'config.php';
-
+ 
 // Получаем параметры фильтрации
 $doctor_id = $_GET['doctor_id'] ?? null;
 $date = $_GET['date'] ?? date('Y-m-d');

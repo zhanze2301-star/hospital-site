@@ -366,5 +366,5 @@ $stats = [
             }
         }, 30000);
     </script>
-</body>
+</body> 
 </html>

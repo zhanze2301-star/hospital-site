@@ -16,7 +16,7 @@ setcookie('admin_auth', '', time()-3600, '/');
 // Уничтожаем сессию
 session_destroy();
 
-// Перенаправляем на главную
+// Перенаправляем на главную 
 header('Location: index.php');
 exit;
 ?>

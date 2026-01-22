@@ -85,4 +85,4 @@ class AdminAuth {
 // Использование:
 // require_once 'admin_auth.php';
 // $auth = new AdminAuth($pdo);
-?>
+?> 

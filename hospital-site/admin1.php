@@ -242,7 +242,7 @@ function showLoginForm($error = '') {
                 'doctors_with_rating' => $pdo->query("SELECT COUNT(*) FROM doctors WHERE rating > 0")->fetchColumn(),
                 'recent_patients' => $pdo->query("SELECT COUNT(DISTINCT id) FROM appointments WHERE appointment_datetime > DATE_SUB(NOW(), INTERVAL 7 DAY)")->fetchColumn()
             ];
-            ?>
+            ?> 
             
             <div class="col-md-3 mb-3">
                 <div class="card stat-card bg-primary text-white">

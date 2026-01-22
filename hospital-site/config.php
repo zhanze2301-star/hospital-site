@@ -22,7 +22,7 @@ try {
     // Для API скриптов
     if (isset($api_mode) && $api_mode) {
         header('Content-Type: application/json');
-        echo json_encode(['error' => 'Database connection failed']);
+        echo json_encode(['error' => 'Database connection failed']); 
         exit;
     }
     // Для HTML страниц

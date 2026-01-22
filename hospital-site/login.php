@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     // Проверяем пароль (по умолчанию: admin123)
     if ($password === 'admin123') {
         $_SESSION['admin_logged_in'] = true;
-        $_SESSION['admin_name'] = 'Администратор';
+        $_SESSION['admin_name'] = 'Администратор'; 
         header('Location: admin.php');
         exit;
     } else {
