@@ -42,7 +42,7 @@ $doctors = $stmt->fetchAll();
           crossorigin="anonymous">
 </head>
 <body class="bg-light">
-
+   
 <div class="container my-5">
     <h1 class="text-center mb-4">Врачи по специальности: <?= htmlspecialchars($speciality['name']) ?></h1>
     

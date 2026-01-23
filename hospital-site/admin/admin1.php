@@ -1,46 +1,34 @@
 <?php
-// admin.php - ПОЛНАЯ АДМИН-ПАНЕЛЬ
+// admin.php - ИСПРАВЛЕННАЯ АДМИН-ПАНЕЛЬ
 session_start();
 require_once 'config.php';
-
-// Разрешенные IP адреса
-$allowed_ips = ['127.0.0.1', '::1', '192.168.1.*'];
-
-$client_ip = $_SERVER['REMOTE_ADDR'];
-$allowed = false;
-
-foreach ($allowed_ips as $ip) {
-    if (strpos($ip, '*') !== false) {
-        $ip_pattern = str_replace('*', '.*', $ip);
-        if (preg_match('/^' . $ip_pattern . '$/', $client_ip)) {
-            $allowed = true;
-            break;
-        }
-    } elseif ($ip === $client_ip) {
-        $allowed = true;
-        break;
-    }
-}
-
-if (!$allowed) {
-    die('Доступ запрещен с вашего IP: ' . $client_ip);
-}
 
 // Пароль администратора (ПОМЕНЯЙТЕ на свой сложный!)
 $admin_password = 'HospitalAdmin2025!';
 
 // Проверка авторизации
 if (!isset($_SESSION['admin_logged_in'])) {
-    // Если есть кука с паролем, проверяем её
-    $cookie_password = $_COOKIE['admin_auth'] ?? '';
-    if ($cookie_password === md5($admin_password)) {
-        $_SESSION['admin_logged_in'] = true;
-        $_SESSION['admin_name'] = 'Администратор';
-    } else {
-        // Форма входа
-        showLoginForm();
-        exit;
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $password = $_POST['password'] ?? '';
+        
+        if ($password === $admin_password) {
+            $_SESSION['admin_logged_in'] = true;
+            $_SESSION['admin_name'] = 'Администратор';
+            
+            if (isset($_POST['remember'])) {
+                setcookie('admin_auth', md5($password), time() + 30*24*60*60, '/');
+            }
+            
+            header('Location: admin.php');
+            exit;
+        } else {
+            $login_error = 'Неверный пароль!';
+        }
     }
+    
+    // Показываем форму входа
+    showLoginForm($login_error ?? '');
+    exit;
 }
 
 // Функция для отображения формы входа
@@ -81,7 +69,7 @@ function showLoginForm($error = '') {
                                 <input type="password" class="form-control" id="password" name="password" 
                                        placeholder="Введите пароль" required>
                                 <div class="form-text">
-                                    Для тестирования: HospitalAdmin2025!
+                                    Для тестирования: <?php echo $GLOBALS['admin_password']; ?>
                                 </div>
                             </div>
                             
@@ -104,31 +92,6 @@ function showLoginForm($error = '') {
             </div>
         </div>
         
-        <?php
-        // Обработка формы входа
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $password = $_POST['password'] ?? '';
-            $remember = isset($_POST['remember']);
-            
-            if ($password === $admin_password) {
-                $_SESSION['admin_logged_in'] = true;
-                $_SESSION['admin_name'] = 'Администратор';
-                
-                if ($remember) {
-                    // Кука на 30 дней
-                    setcookie('admin_auth', md5($password), time() + 30*24*60*60, '/');
-                }
-                
-                // Перенаправляем на админку
-                header('Location: admin.php');
-                exit;
-            } else {
-                showLoginForm('Неверный пароль!');
-                exit;
-            }
-        }
-        ?>
-        
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
     </body>
     </html>
@@ -136,6 +99,17 @@ function showLoginForm($error = '') {
 }
 
 // Если мы здесь, значит пользователь авторизован
+
+// Получаем статистику (ИСПРАВЛЕННЫЙ ЗАПРОС!)
+$stats = [
+    'total_appointments' => $pdo->query("SELECT COUNT(*) FROM appointments")->fetchColumn(),
+    'pending' => $pdo->query("SELECT COUNT(*) FROM appointments WHERE status = 'pending'")->fetchColumn(),
+    'today' => $pdo->query("SELECT COUNT(*) FROM appointments WHERE DATE(appointment_datetime) = CURDATE()")->fetchColumn(),
+    'tomorrow' => $pdo->query("SELECT COUNT(*) FROM appointments WHERE DATE(appointment_datetime) = DATE_ADD(CURDATE(), INTERVAL 1 DAY)")->fetchColumn(),
+    'total_doctors' => $pdo->query("SELECT COUNT(*) FROM doctors")->fetchColumn(),
+    'doctors_with_rating' => $pdo->query("SELECT COUNT(*) FROM doctors WHERE rating > 0")->fetchColumn(),
+    'recent_patients' => $pdo->query("SELECT COUNT(DISTINCT patient_name) FROM appointments WHERE appointment_datetime > DATE_SUB(NOW(), INTERVAL 7 DAY)")->fetchColumn()
+];
 ?>
 <!DOCTYPE html>
 <html lang="ru">
@@ -174,6 +148,21 @@ function showLoginForm($error = '') {
         .appointment-row:hover {
             background-color: #f8f9fa;
         }
+        .sidebar a {
+            display: block;
+            padding: 10px 15px;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 2px 0;
+            transition: background 0.3s;
+        }
+        .sidebar a:hover {
+            background: #34495e;
+        }
+        .sidebar a.active {
+            background: #3498db;
+        }
     </style>
 </head>
 <body>
@@ -185,33 +174,35 @@ function showLoginForm($error = '') {
         
         <div class="mb-4">
             <div class="text-muted mb-2">Главное меню</div>
-            <a href="admin.php" class="d-block py-2 px-3 mb-1 rounded text-white text-decoration-none bg-primary">
+            <a href="admin1.php" class="active">
                 <i class="bi bi-speedometer2"></i> Панель управления
             </a>
-            <a href="admin_appointments.php" class="d-block py-2 px-3 mb-1 rounded text-white text-decoration-none">
+            <a href="admin_appointments.php">
                 <i class="bi bi-calendar-check"></i> Записи на приём
             </a>
-            <a href="admin_doctors.php" class="d-block py-2 px-3 mb-1 rounded text-white text-decoration-none">
+            <a href="admin_doctors.php">
                 <i class="bi bi-people"></i> Врачи
             </a>
-            <a href="admin_schedule.php" class="d-block py-2 px-3 mb-1 rounded text-white text-decoration-none">
+            <a href="admin_schedule.php">
                 <i class="bi bi-clock"></i> Расписание
             </a>
         </div>
         
         <div class="mb-4">
             <div class="text-muted mb-2">Отчёты</div>
-            <a href="admin_reports.php?type=daily" class="d-block py-2 px-3 mb-1 rounded text-white text-decoration-none">
+            <a href="admin_reports.php?type=daily">
                 <i class="bi bi-bar-chart"></i> Ежедневный отчёт
             </a>
-            <a href="admin_reports.php?type=doctors" class="d-block py-2 px-3 mb-1 rounded text-white text-decoration-none">
+            <a href="admin_reports.php?type=doctors">
                 <i class="bi bi-graph-up"></i> Статистика врачей
             </a>
         </div>
         
         <div class="mt-5 pt-4 border-top">
-            <div class="text-muted mb-2"><?php echo $_SESSION['admin_name']; ?></div>
-            <a href="logout.php" class="d-block py-2 px-3 rounded text-danger text-decoration-none">
+            <div class="text-muted mb-2">
+                <i class="bi bi-person-circle"></i> <?php echo $_SESSION['admin_name']; ?>
+            </div>
+            <a href="logout.php" class="text-danger">
                 <i class="bi bi-box-arrow-right"></i> Выйти
             </a>
         </div>
@@ -231,19 +222,6 @@ function showLoginForm($error = '') {
 
         <!-- Статистика -->
         <div class="row mb-4">
-            <?php
-            // Получаем статистику
-            $stats = [
-                'total_appointments' => $pdo->query("SELECT COUNT(*) FROM appointments")->fetchColumn(),
-                'pending' => $pdo->query("SELECT COUNT(*) FROM appointments WHERE status = 'pending'")->fetchColumn(),
-                'today' => $pdo->query("SELECT COUNT(*) FROM appointments WHERE DATE(appointment_datetime) = CURDATE()")->fetchColumn(),
-                'tomorrow' => $pdo->query("SELECT COUNT(*) FROM appointments WHERE DATE(appointment_datetime) = DATE_ADD(CURDATE(), INTERVAL 1 DAY)")->fetchColumn(),
-                'total_doctors' => $pdo->query("SELECT COUNT(*) FROM doctors")->fetchColumn(),
-                'doctors_with_rating' => $pdo->query("SELECT COUNT(*) FROM doctors WHERE rating > 0")->fetchColumn(),
-                'recent_patients' => $pdo->query("SELECT COUNT(DISTINCT id) FROM appointments WHERE appointment_datetime > DATE_SUB(NOW(), INTERVAL 7 DAY)")->fetchColumn()
-            ];
-            ?> 
-            
             <div class="col-md-3 mb-3">
                 <div class="card stat-card bg-primary text-white">
                     <div class="card-body">
@@ -323,117 +301,83 @@ function showLoginForm($error = '') {
                 ")->fetchAll();
                 ?>
                 
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Пациент</th>
-                                <th>Врач</th>
-                                <th>Дата/время</th>
-                                <th>Статус</th>
-                                <th>Действия</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($recent_appointments as $app): ?>
-                            <tr class="appointment-row">
-                                <td>#<?php echo $app['id']; ?></td>
-                                <td>
-                                    <strong><?php echo htmlspecialchars($app['patient_name']); ?></strong>
-                                    <?php if ($app['patient_phone']): ?>
-                                        <br><small class="text-muted"><?php echo $app['patient_phone']; ?></small>
-                                    <?php endif; ?>
-                                </td>
-                                <td><?php echo htmlspecialchars($app['doctor_name']); ?></td>
-                                <td>
-                                    <?php 
-                                    $datetime = new DateTime($app['appointment_datetime']);
-                                    echo $datetime->format('d.m.Y H:i');
-                                    ?>
-                                </td>
-                                <td>
-                                    <?php
-                                    $status_config = [
-                                        'pending' => ['class' => 'warning', 'icon' => 'clock'],
-                                        'completed' => ['class' => 'success', 'icon' => 'check-circle'],
-                                        'cancelled' => ['class' => 'secondary', 'icon' => 'x-circle']
-                                    ];
-                                    $status = $status_config[$app['status']];
-                                    ?>
-                                    <span class="badge bg-<?php echo $status['class']; ?> status-badge">
-                                        <i class="bi bi-<?php echo $status['icon']; ?>"></i>
-                                        <?php echo $app['status']; ?>
-                                    </span>
-                                </td>
-                                <td>
-                                    <div class="btn-group btn-group-sm">
-                                        <?php if ($app['status'] == 'pending'): ?>
-                                            <button class="btn btn-success" 
-                                                    onclick="changeStatus(<?php echo $app['id']; ?>, 'completed')"
-                                                    title="Завершить">
-                                                <i class="bi bi-check-lg"></i>
-                                            </button>
-                                            <button class="btn btn-danger"
-                                                    onclick="changeStatus(<?php echo $app['id']; ?>, 'cancelled')"
-                                                    title="Отменить">
-                                                <i class="bi bi-x-lg"></i>
-                                            </button>
+                <?php if (empty($recent_appointments)): ?>
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> Нет записей на приём.
+                    </div>
+                <?php else: ?>
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Пациент</th>
+                                    <th>Врач</th>
+                                    <th>Дата/время</th>
+                                    <th>Статус</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($recent_appointments as $app): ?>
+                                <tr class="appointment-row">
+                                    <td>#<?php echo $app['id']; ?></td>
+                                    <td>
+                                        <strong><?php echo htmlspecialchars($app['patient_name']); ?></strong>
+                                        <?php if ($app['patient_phone']): ?>
+                                            <br><small class="text-muted"><?php echo $app['patient_phone']; ?></small>
                                         <?php endif; ?>
-                                        <button class="btn btn-info"
-                                                onclick="viewAppointment(<?php echo $app['id']; ?>)"
-                                                title="Подробнее">
-                                            <i class="bi bi-eye"></i>
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
+                                    </td>
+                                    <td><?php echo htmlspecialchars($app['doctor_name']); ?></td>
+                                    <td>
+                                        <?php 
+                                        $datetime = new DateTime($app['appointment_datetime']);
+                                        echo $datetime->format('d.m.Y H:i');
+                                        ?>
+                                    </td>
+                                    <td>
+                                        <?php
+                                        $status_config = [
+                                            'pending' => ['class' => 'warning', 'icon' => 'clock'],
+                                            'completed' => ['class' => 'success', 'icon' => 'check-circle'],
+                                            'cancelled' => ['class' => 'secondary', 'icon' => 'x-circle']
+                                        ];
+                                        $status = $status_config[$app['status']];
+                                        ?>
+                                        <span class="badge bg-<?php echo $status['class']; ?> status-badge">
+                                            <i class="bi bi-<?php echo $status['icon']; ?>"></i>
+                                            <?php echo $app['status']; ?>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <?php if ($app['status'] == 'pending'): ?>
+                                                <a href="change_status.php?id=<?php echo $app['id']; ?>&status=completed" 
+                                                   class="btn btn-success" title="Завершить">
+                                                    <i class="bi bi-check-lg"></i>
+                                                </a>
+                                                <a href="change_status.php?id=<?php echo $app['id']; ?>&status=cancelled" 
+                                                   class="btn btn-danger" title="Отменить">
+                                                    <i class="bi bi-x-lg"></i>
+                                                </a>
+                                            <?php endif; ?>
+                                            <a href="view_appointment.php?id=<?php echo $app['id']; ?>" 
+                                               class="btn btn-info" title="Подробнее">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
     </main>
 
     <script>
-        // Функция изменения статуса
-        async function changeStatus(appointmentId, newStatus) {
-            const statusNames = {
-                'completed': 'завершён',
-                'cancelled': 'отменён'
-            };
-            
-            if (!confirm(`Отметить запись как ${statusNames[newStatus]}?`)) return;
-            
-            try {
-                const formData = new FormData();
-                formData.append('id', appointmentId);
-                formData.append('status', newStatus);
-                
-                const response = await fetch('api/update_appointment.php', {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    alert('Статус обновлён!');
-                    location.reload();
-                } else {
-                    alert('Ошибка: ' + result.error);
-                }
-            } catch (error) {
-                alert('Ошибка сети: ' + error.message);
-            }
-        }
-        
-        // Функция просмотра записи
-        function viewAppointment(id) {
-            window.open(`view_appointment.php?id=${id}`, '_blank');
-        }
-        
         // Автообновление каждые 60 секунд
         setInterval(() => {
             if (!document.hidden) {

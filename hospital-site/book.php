@@ -54,6 +54,7 @@ if (!$doctor) {
     </style>
 </head>
 <body>
+    <!-- добавить кнопку выбор процедур при заполнении формы записи -->
     <div class="container py-5">
         <!-- Карточка врача -->
         <div class="doctor-card">
