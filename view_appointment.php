@@ -193,10 +193,10 @@ $rating = $rating_stmt->fetch();
                                                 <span class="badge bg-info ms-2"><?php echo $appointment['workplace']; ?></span>
                                             <?php endif; ?>
                                         </p>
-                                        <a href="book.php?doctor_id=<?php echo $appointment['doctor_id']; ?>" 
+                                        <!-- <a href="book.php?doctor_id=<?php echo $appointment['doctor_id']; ?>" 
                                            class="btn btn-sm btn-outline-primary mt-2">
                                             <i class="bi bi-calendar-plus"></i> Записаться к этому врачу
-                                        </a>
+                                        </a> -->
                                     </div>
                                 </div>
                             </div>

@@ -1,5 +1,5 @@
 <?php
-// edit_doctor.php - Редактирование информации о враче
+// edit_doctor.php - Редактирование информации о враче. Работает - кнопки там где должны быть .
 session_start();
 require_once 'config.php';
 
@@ -33,28 +33,23 @@ $specialities = $pdo->query("SELECT * FROM specialities ORDER BY name")->fetchAl
 
 // Получаем завершенные записи этого врача для оценки
 $completed_appointments = $pdo->prepare("
-    SELECT a.*, p.patient_name as patient_name
+    SELECT a.id, a.patient_name, a.appointment_datetime
     FROM appointments a
-    LEFT JOIN (
-        SELECT id, patient_name 
-        FROM appointments 
-        WHERE doctor_id = ?
-    ) p ON a.id = p.id
     WHERE a.doctor_id = ? 
     AND a.status = 'completed'
     AND NOT EXISTS (
-        SELECT 1 FROM ratings r WHERE r.id = a.id
+        SELECT 1 FROM ratings r WHERE r.appointment_id = a.id
     )
     ORDER BY a.appointment_datetime DESC
     LIMIT 10
 ");
-$completed_appointments->execute([$doctor_id, $doctor_id]);
+$completed_appointments->execute([$doctor_id]);
 
 // Получаем существующие оценки врача
 $existing_ratings = $pdo->prepare("
     SELECT r.*, a.patient_name, a.appointment_datetime
     FROM ratings r
-    LEFT JOIN appointments a ON r.id = a.id
+    JOIN appointments a ON r.appointment_id = a.id
     WHERE a.doctor_id = ?
     ORDER BY r.id DESC
 ");
@@ -63,12 +58,13 @@ $existing_ratings->execute([$doctor_id]);
 // Обработка формы редактирования врача
 $errors = [];
 $success = false;
+$success_message = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Проверяем, какая форма отправлена
     if (isset($_POST['add_rating'])) {
         // Обработка добавления рейтинга
-        $appointment_id = intval($_POST['id'] ?? 0);
+        $appointment_id = intval($_POST['appointment_id'] ?? 0);
         $score = intval($_POST['score'] ?? 0);
         $comment = trim($_POST['comment'] ?? '');
         $reviewer_name = trim($_POST['reviewer_name'] ?? 'Администратор');
@@ -94,8 +90,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($check_stmt->fetch()) {
                     // Добавляем оценку
                     $rating_stmt = $pdo->prepare("
-                        INSERT INTO ratings (id, score, comment, reviewer_name, is_visible, created_at)
-                        VALUES (?, ?, ?, ?, ?, NOW())
+                        INSERT INTO ratings (appointment_id, score, comment, reviewer_name, is_visible, admin_added)
+                        VALUES (?, ?, ?, ?, ?, 1)
                     ");
                     $rating_stmt->execute([$appointment_id, $score, $comment, $reviewer_name, $is_visible]);
                     
@@ -103,9 +99,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $update_rating_stmt = $pdo->prepare("
                         UPDATE doctors 
                         SET rating = (
-                            SELECT AVG(score) 
+                            SELECT AVG(r.score) 
                             FROM ratings r
-                            JOIN appointments a ON r.id = a.id
+                            JOIN appointments a ON r.appointment_id = a.id
                             WHERE a.doctor_id = ? AND r.is_visible = 1
                         )
                         WHERE id = ?
@@ -116,7 +112,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $success_message = 'Оценка успешно добавлена!';
                     
                     // Обновляем списки
-                    $completed_appointments->execute([$doctor_id, $doctor_id]);
+                    $completed_appointments->execute([$doctor_id]);
                     $existing_ratings->execute([$doctor_id]);
                 } else {
                     $errors[] = 'Запись не найдена или не завершена';
@@ -126,7 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     } else {
-        // Обработка редактирования данных врача (существующий код)
+        // Обработка редактирования данных врача
         $name = trim($_POST['name'] ?? '');
         $speciality_id = intval($_POST['speciality_id'] ?? 0);
         $description = trim($_POST['description'] ?? '');
@@ -161,6 +157,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 $success = true;
                 $success_message = 'Информация о враче успешно обновлена!';
+                
                 // Обновляем данные врача
                 $doctor = array_merge($doctor, [
                     'name' => $name,
@@ -252,7 +249,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <h5><i class="bi bi-exclamation-triangle"></i> Ошибки:</h5>
                 <ul class="mb-0">
                     <?php foreach ($errors as $error): ?>
-                        <li><?php echo $error; ?></li>
+                        <li><?php echo htmlspecialchars($error); ?></li>
                     <?php endforeach; ?>
                 </ul>
             </div>
@@ -263,7 +260,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="col-md-4">
                 <div class="card mb-4">
                     <div class="card-body text-center">
-                        <?php if ($doctor['photo_url']): ?>
+                        <?php if (!empty($doctor['photo_url'])): ?>
                             <img src="<?php echo htmlspecialchars($doctor['photo_url']); ?>" 
                                  class="doctor-photo mb-3" 
                                  alt="Фото врача"
@@ -305,14 +302,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <?php endif; ?>
                         </div>
                         
-                        <?php if ($doctor['workplace']): ?>
+                        <?php if (!empty($doctor['workplace'])): ?>
                             <p>
                                 <i class="bi bi-building"></i> 
                                 <?php echo htmlspecialchars($doctor['workplace']); ?>
                             </p>
                         <?php endif; ?>
                         
-                        <?php if ($doctor['experience']): ?>
+                        <?php if (!empty($doctor['experience'])): ?>
                             <p>
                                 <i class="bi bi-clock-history"></i> 
                                 Опыт: <?php echo htmlspecialchars($doctor['experience']); ?>
@@ -328,17 +325,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                     <div class="card-body">
                         <?php
-                        $stats = $pdo->prepare("
+                        // Статистика по врачу
+                        $stats_stmt = $pdo->prepare("
                             SELECT 
                                 COUNT(*) as total_appointments,
+                                SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_appointments,
                                 AVG(r.score) as avg_rating,
                                 COUNT(r.id) as rating_count
                             FROM appointments a
-                            LEFT JOIN ratings r ON a.id = r.id
+                            LEFT JOIN ratings r ON a.id = r.appointment_id
                             WHERE a.doctor_id = ?
                         ");
-                        $stats->execute([$doctor_id]);
-                        $stat_data = $stats->fetch();
+                        $stats_stmt->execute([$doctor_id]);
+                        $stat_data = $stats_stmt->fetch();
                         ?>
                         
                         <div class="list-group list-group-flush">
@@ -348,13 +347,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </div>
                             <div class="list-group-item d-flex justify-content-between">
                                 <span>Завершено:</span>
-                                <strong>
-                                    <?php
-                                    $completed = $pdo->prepare("SELECT COUNT(*) FROM appointments WHERE doctor_id = ? AND status = 'completed'");
-                                    $completed->execute([$doctor_id]);
-                                    echo $completed->fetchColumn();
-                                    ?>
-                                </strong>
+                                <strong><?php echo $stat_data['completed_appointments']; ?></strong>
                             </div>
                             <div class="list-group-item d-flex justify-content-between">
                                 <span>Средний рейтинг:</span>
@@ -457,12 +450,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
                     </div>
                     
-                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                    <!-- <div class="d-grid gap-2 d-md-flex justify-content-md-end">
                         <a href="admin_doctors.php" class="btn btn-secondary me-2">Отмена</a>
                         <button type="submit" class="btn btn-primary">
                             <i class="bi bi-save"></i> Сохранить изменения
                         </button>
-                    </div>
+                    </div> -->
                 </form>
                 
                 <!-- Секция для добавления рейтинга -->
@@ -475,12 +468,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Запись для оценки *</label>
-                                <select name="id" class="form-select" required>
+                                <select name="appointment_id" class="form-select" required>
                                     <option value="">Выберите завершенную запись</option>
                                     <?php while ($appointment = $completed_appointments->fetch()): ?>
                                         <option value="<?php echo $appointment['id']; ?>">
                                             #<?php echo $appointment['id']; ?> - 
-                                            <?php echo htmlspecialchars($appointment['patient_name'] ?? 'Пациент'); ?> - 
+                                            <?php echo htmlspecialchars($appointment['patient_name']); ?> - 
                                             <?php echo date('d.m.Y H:i', strtotime($appointment['appointment_datetime'])); ?>
                                         </option>
                                     <?php endwhile; ?>
@@ -550,7 +543,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
                 
                 <!-- Список существующих оценок -->
-                <?php if ($existing_ratings->rowCount() > 0): ?>
+                <?php 
+                $existing_ratings->execute([$doctor_id]);
+                if ($existing_ratings->rowCount() > 0): 
+                ?>
                 <div class="form-section">
                     <h5><i class="bi bi-list-stars text-warning"></i> Существующие оценки (<?php echo $existing_ratings->rowCount(); ?>)</h5>
                     
@@ -569,12 +565,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                                 <?php endif; ?>
                                             <?php endfor; ?>
                                         </span>
-                                        <span class="badge bg-<?php echo $rating['is_visible'] ? 'success' : 'secondary'; ?> rating-badge ms-2">
-                                            <?php echo $rating['is_visible'] ? 'Публичный' : 'Скрытый'; ?>
+                                        <span class="badge bg-<?php echo isset($rating['is_visible']) && $rating['is_visible'] ? 'success' : 'secondary'; ?> rating-badge ms-2">
+                                            <?php echo isset($rating['is_visible']) && $rating['is_visible'] ? 'Публичный' : 'Скрытый'; ?>
                                         </span>
+                                        <?php if (isset($rating['admin_added']) && $rating['admin_added']): ?>
+                                            <span class="badge bg-info rating-badge ms-1">Добавлен админом</span>
+                                        <?php endif; ?>
                                     </div>
                                     
-                                    <?php if ($rating['comment']): ?>
+                                    <?php if (!empty($rating['comment'])): ?>
                                         <p class="mb-1">"<?php echo htmlspecialchars($rating['comment']); ?>"</p>
                                     <?php endif; ?>
                                     
@@ -583,19 +582,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                         <?php echo htmlspecialchars($rating['reviewer_name'] ?? 'Администратор'); ?> 
                                         • 
                                         <i class="bi bi-calendar"></i> 
-                                        Запись #<?php echo $rating['id']; ?> 
+                                        Запись #<?php echo $rating['appointment_id']; ?> 
                                         (<?php echo date('d.m.Y', strtotime($rating['appointment_datetime'])); ?>)
                                     </small>
                                 </div>
+                                <?php if (!empty($rating['created_at'])): ?>
                                 <small class="text-muted">
                                     <?php echo date('d.m.Y', strtotime($rating['created_at'])); ?>
                                 </small>
+                                <?php endif; ?>
                             </div>
                         </div>
                         <?php endwhile; ?>
                     </div>
                 </div>
                 <?php endif; ?>
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="admin_doctors.php" class="btn btn-secondary me-2">Отмена</a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save"></i> Сохранить изменения
+                        </button>
+                </div>
             </div>
         </div>
     </div>

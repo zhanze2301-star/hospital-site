@@ -1,5 +1,4 @@
-<?php
-// doctor_schedule.php - Расписание конкретного врача
+<?php // doctor_schedule.php - Расписание конкретного врача. Работатют все функции
 session_start();
 require_once 'config.php';
 
@@ -224,11 +223,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_schedule'])) {
                     <i class="bi bi-calendar-check"></i> Ближайшие записи
                 </button>
             </li>
-            <li class="nav-item">
+            <!-- <li class="nav-item">
                 <button class="nav-link" data-bs-toggle="tab" data-bs-target="#calendar-view">
                     <i class="bi bi-calendar-month"></i> Календарь
                 </button>
-            </li>
+            </li> -->
         </ul>
         
         <div class="tab-content">
@@ -449,7 +448,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_schedule'])) {
                 </div>
             </div>
             
-            <!-- Календарь -->
+            <!-- Календарь
             <div class="tab-pane fade" id="calendar-view">
                 <div class="card">
                     <div class="card-header">
@@ -460,7 +459,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_schedule'])) {
                     </div>
                 </div>
             </div>
-        </div>
+        </div> -->
         
         <!-- Статистика -->
         <div class="row mt-4">
