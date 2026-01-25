@@ -22,6 +22,40 @@ $doctor = $stmt->fetch();
 if (!$doctor) {
     die('<div class="alert alert-danger">Врач не найден в базе данных.</div>');
 }
+
+// В функции проверки доступности времени
+function isDoctorAvailable($doctor_id, $datetime) {
+    global $pdo;
+    
+    // Проверяем исключения
+    $sql = "SELECT COUNT(*) as count FROM doctor_unavailable 
+            WHERE doctor_id = ? 
+            AND ? >= start_datetime 
+            AND ? <= end_datetime";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$doctor_id, $datetime, $datetime]);
+    $result = $stmt->fetch();
+    
+    if ($result['count'] > 0) {
+        return false; // Врач отсутствует
+    }
+    
+    // Проверяем регулярное расписание
+    $day_of_week = date('N', strtotime($datetime)); // 1-7
+    $time = date('H:i:s', strtotime($datetime));
+    
+    $sql = "SELECT * FROM doctor_schedule 
+            WHERE doctor_id = ? 
+            AND day_of_week = ? 
+            AND is_working = 1 
+            AND ? >= start_time 
+            AND ? <= end_time";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$doctor_id, $day_of_week, $time, $time]);
+    
+    return $stmt->rowCount() > 0;
+}
+
 ?>
 
 <!DOCTYPE html>
