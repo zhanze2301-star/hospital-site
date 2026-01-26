@@ -1,42 +1,57 @@
 <?php
-session_start();
+// api/get_doctors.php
+header('Content-Type: application/json; charset=utf-8');
+header('Access-Control-Allow-Origin: *');
 require_once '../config.php';
 
-header('Content-Type: application/json');
-
-$hospital_id = intval($_GET['hospital_id'] ?? 0);
-$specialization_id = intval($_GET['specialization_id'] ?? 0);
-
-if (!$hospital_id) {
-    echo json_encode(['error' => 'Hospital ID is required']);
-    exit;
-}
-
 try {
-    $sql = "
-        SELECT d.*, s.name as speciality_name
-        FROM doctors d
-        LEFT JOIN specialities s ON d.speciality_id = s.id
-        LEFT JOIN departments dept ON d.department_id = dept.id
-        WHERE dept.hospital_id = ? AND d.speciality_id > 0
-    ";
+    $service_id = isset($_GET['service_id']) ? (int)$_GET['service_id'] : null;
+    $specialization_id = isset($_GET['specialization_id']) ? (int)$_GET['specialization_id'] : null;
     
-    $params = [$hospital_id];
-    
-    if ($specialization_id) {
-        $sql .= " AND d.speciality_id = ?";
-        $params[] = $specialization_id;
+    if ($service_id) {
+        // Врачи, оказывающие конкретную услугу
+        $stmt = $pdo->prepare("
+            SELECT DISTINCT d.*, s.name as speciality_name
+            FROM doctors d
+            LEFT JOIN doctor_services ds ON d.id = ds.doctor_id
+            LEFT JOIN specialities s ON d.speciality_id = s.id
+            WHERE ds.service_id = :service_id
+            ORDER BY d.rating DESC, d.name
+        ");
+        $stmt->execute([':service_id' => $service_id]);
+    } elseif ($specialization_id) {
+        // Врачи конкретной специальности
+        $stmt = $pdo->prepare("
+            SELECT d.*, s.name as speciality_name
+            FROM doctors d
+            LEFT JOIN specialities s ON d.speciality_id = s.id
+            WHERE d.speciality_id = :specialization_id
+            ORDER BY d.rating DESC, d.name
+        ");
+        $stmt->execute([':specialization_id' => $specialization_id]);
+    } else {
+        // Все врачи
+        $stmt = $pdo->prepare("
+            SELECT d.*, s.name as speciality_name
+            FROM doctors d
+            LEFT JOIN specialities s ON d.speciality_id = s.id
+            ORDER BY d.rating DESC, d.name
+        ");
+        $stmt->execute();
     }
     
-    $sql .= " ORDER BY d.name";
-    
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
     $doctors = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    echo json_encode($doctors ?: []);
+    echo json_encode([
+        'success' => true,
+        'doctors' => $doctors,
+        'count' => count($doctors)
+    ]);
+    
 } catch (PDOException $e) {
-    http_response_code(500);
-    echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
+    echo json_encode([
+        'success' => false,
+        'error' => 'Ошибка базы данных'
+    ]);
 }
 ?>

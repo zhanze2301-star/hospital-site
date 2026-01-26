@@ -1,20 +1,29 @@
 <?php
-session_start();
+// api/get_specializations.php
+header('Content-Type: application/json; charset=utf-8');
+header('Access-Control-Allow-Origin: *');
 require_once '../config.php';
 
-header('Content-Type: application/json');
-
 try {
-    $stmt = $pdo->query("
+    $stmt = $pdo->prepare("
         SELECT id, name, description 
         FROM specialities 
         ORDER BY name
     ");
+    $stmt->execute();
+    
     $specializations = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    echo json_encode($specializations ?: []);
+    echo json_encode([
+        'success' => true,
+        'specializations' => $specializations,
+        'count' => count($specializations)
+    ]);
+    
 } catch (PDOException $e) {
-    http_response_code(500);
-    echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
+    echo json_encode([
+        'success' => false,
+        'error' => 'Ошибка базы данных'
+    ]);
 }
 ?>

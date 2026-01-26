@@ -77,7 +77,7 @@ $doctors = $stmt->fetchAll();
                             <p class="card-text text-muted">
                                 <?= nl2br(htmlspecialchars($doctor['description'] ?? 'Описание отсутствует')) ?>
                             </p>
-                            <a href="book.php?doctor_id=<?= $doctor['id'] ?>" 
+                            <a href="booking_system.php?doctor_id=<?= $doctor['id'] ?>" 
                                class="btn btn-primary w-100">
                                 Записаться на приём
                             </a>
